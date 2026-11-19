@@ -61,6 +61,7 @@
         "sort-packages": true
     },
     "support": {
+        "docs": "https://justinholt.com/plugins/craft-plusone/docs",
         "issues": "https://github.com/justinholtweb/craft-plusone/issues",
         "source": "https://github.com/justinholtweb/craft-plusone"
     },
