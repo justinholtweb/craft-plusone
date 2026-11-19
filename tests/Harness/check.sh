@@ -125,7 +125,8 @@ ok "twig: signed in as the new user" "$(who "$J")" "plusone_alice@plusone.test"
 ALICE=$(uid plusone_alice@plusone.test email)
 ok "identity linked to the new user" "$(idlink plusone-fake plusone-alice)" "$ALICE"
 ok "new user is active and in the default group" "$(tk "\$u=CraftCms\\Cms\\User\\Elements\\User::find()->id($ALICE)->status(null)->one(); echo \$u->getStatus().'/'.implode(',', array_map(fn(\$g)=>\$g->handle, \$u->getGroups()));")" "active/plusoneMembers"
-ok "new user's provider-verified email is recorded as proven" "$(proof "$ALICE")" "provider"
+ok "new user's email verified by a trusted provider is recorded as proven" "$(proof "$ALICE")" "provider"
+ok "…with the provider that vouched" "$(tk "echo Illuminate\\Support\\Facades\\DB::table('plusone_email_proofs')->where('userId', $ALICE)->value('provider');")" "plusone-fake"
 ok "new user has no password and isn't an admin" "$(tk "echo json_encode([Illuminate\\Support\\Facades\\DB::table('users')->where('id',$ALICE)->value('password'), (bool) Illuminate\\Support\\Facades\\DB::table('users')->where('id',$ALICE)->value('admin')]);")" "[null,false]"
 J2=$(jar)
 login "$J2" 'sub=plusone-alice&email=plusone_alice@plusone.test&verified=1' >/dev/null
@@ -174,6 +175,20 @@ ok "mover proves its email" "$(prove plusone_mover)/$(proof "$MOVER")" "200/emai
 tk "\$u=CraftCms\\Cms\\User\\Elements\\User::find()->id($MOVER)->status(null)->one(); \$u->email='plusone_victim3@plusone.test'; echo CraftCms\\Cms\\Support\\Facades\\Elements::saveElement(\$u, false) ? 1 : 0;" >/dev/null
 J=$(jar)
 ok "email changed to a victim's without verification → the old proof doesn't count, refused" "$(login "$J" 'sub=plusone-victim3&email=plusone_victim3@plusone.test&verified=1' >/dev/null; who "$J")/$(idlink plusone-fake plusone-victim3)/$(tk "echo CraftCms\\Cms\\User\\Elements\\User::find()->id($MOVER)->status(null)->one()->email;")" "guest/none/plusone_victim3@plusone.test"
+# A reset code goes to the CURRENT email: it must never prove a pending change to someone else's.
+SWAP=$(uid plusone_swap)
+tk "Illuminate\\Support\\Facades\\DB::table('users')->where('id',$SWAP)->update(['unverifiedEmail'=>'plusone_victim4@plusone.test']); echo 1;" >/dev/null
+ok "reset link while a change to a victim's email is pending → no proof recorded" "$(prove plusone_swap)/$(proof "$SWAP")" "200/none"
+tk "Illuminate\\Support\\Facades\\DB::table('users')->where('id',$SWAP)->update(['email'=>'plusone_victim4@plusone.test','unverifiedEmail'=>null]); echo 1;" >/dev/null
+J=$(jar)
+ok "…so when that email lands on the account, the victim's login is still refused" "$(login "$J" 'sub=plusone-victim4&email=plusone_victim4@plusone.test&verified=1' >/dev/null; who "$J")/$(idlink plusone-fake plusone-victim4)" "guest/none"
+# A provider that isn't trusted for email (Keycloak here: match by email off) can't mint a proof.
+J=$(jar)
+ok "untrusted provider registers an account with a 'verified' email" "$(login "$J" 'sub=plusone-kc-launder&email=plusone_launder@plusone.test&verified=1' plusone-kc >/dev/null; who "$J")" "plusone_launder@plusone.test"
+LAUNDER=$(uid plusone_launder@plusone.test email)
+ok "…but gets no email proof" "$(proof "$LAUNDER")" "none"
+J=$(jar)
+ok "…so a trusted provider's sign-in with that email isn't handed the account" "$(login "$J" 'sub=plusone-launder-victim&email=plusone_launder@plusone.test&verified=1' >/dev/null; who "$J")/$(idlink plusone-fake plusone-launder-victim)" "guest/none"
 conf '{"fake.linkByEmail": false}'
 J=$(jar)
 ok "existing email, verified, but provider not set to match by email → refused" "$(login "$J" 'sub=plusone-bob-g&email=plusone_bob@plusone.test&verified=1')/$(who "$J")" "302 $ACCOUNT/guest"

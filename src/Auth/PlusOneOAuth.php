@@ -54,6 +54,8 @@ class PlusOneOAuth extends OAuth
     /** An address the provider verified during this sign-in, to record once the identity is linked. */
     private ?string $verifiedEmail = null;
 
+    private ?string $verifiedBy = null;
+
     public function __construct(
         private readonly GeneralConfig $config,
         private readonly ProjectConfig $projects,
@@ -255,9 +257,10 @@ class PlusOneOAuth extends OAuth
         return array_values(array_unique($ids));
     }
 
-    public function noteVerifiedEmail(string $email): void
+    public function noteVerifiedEmail(string $email, string $providerHandle): void
     {
         $this->verifiedEmail = $email;
+        $this->verifiedBy = $providerHandle;
     }
 
     /**
@@ -269,11 +272,17 @@ class PlusOneOAuth extends OAuth
     {
         parent::linkIdentity($user, $provider, $identity);
 
-        if ($this->verifiedEmail !== null && is_string($user->email) && mb_strtolower(trim($user->email)) === mb_strtolower(trim($this->verifiedEmail))) {
-            app(EmailProofs::class)->record($user, $user->email, EmailProofs::METHOD_PROVIDER);
+        if (
+            $this->verifiedEmail !== null &&
+            $this->verifiedBy === $provider->handle &&
+            $provider->trustsEmail &&
+            is_string($user->email) &&
+            mb_strtolower(trim($user->email)) === mb_strtolower(trim($this->verifiedEmail))
+        ) {
+            app(EmailProofs::class)->record($user, $user->email, EmailProofs::METHOD_PROVIDER, $provider->handle);
         }
 
-        $this->verifiedEmail = null;
+        $this->verifiedEmail = $this->verifiedBy = null;
     }
 
     /** Whether this request is the control panel's (or a CP sign-in's callback). */

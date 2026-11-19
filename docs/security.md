@@ -31,8 +31,15 @@ Plus One keeps its own per-user record of which address an account has proved ow
 (`plusone_email_proofs`, a hash of the address). A proof is recorded when:
 
 - someone follows a link Craft emailed — activation, email verification or password reset (core's
-  `EmailVerified` event) — for the address that link was sent to, or
-- Plus One registers a user, or links one by email, with an address the provider verified.
+  `EmailVerified` event). Core uses one kind of code for all of these and doesn't say which link it
+  was, so Plus One records only the account's current email, and only when there's no pending change
+  to a different address (a reset link goes to the current address, a verification link to the
+  pending one, and Plus One can't tell them apart). A pending change is proven by the next link
+  that comes back after it's applied; or
+- Plus One registers a user, or links one by email, with an address verified by a provider that is
+  set to *Match by verified email*. The proof names that provider and stops counting if the provider
+  is removed or no longer trusted, so a provider with a weak `email_verified` can't mint proofs that
+  a trusted one then relies on.
 
 The proof is for one address. **Any** change to the account's email voids it, however it was made
 (front end with verification off, the control panel, the console, an import), until a new link
@@ -47,6 +54,9 @@ come into it.
   a provider from their account. This fails closed, never open.
 - An admin can copy an account's activation or password-reset URL in the control panel and open it
   without the email ever being sent; that counts as a proof. Admins are trusted with accounts anyway.
+- There is no "email last changed" date in Craft, so a proof is tied to the address (by hash) rather
+  than to a time: an account that proved an address, moved away from it and later moved back is
+  still proven for it.
 - *Match by verified email* trusts the provider's `email_verified` claim. It's **off** by default for
   every provider; turn it on only for providers whose verification you trust.
 

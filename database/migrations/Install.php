@@ -29,6 +29,9 @@ class Install extends Migration
             $table->foreign('userId')->references('id')->on(Table::USERS)->cascadeOnDelete();
             $table->char('emailHash', 64);
             $table->string('method', 16); // email-link | provider
+            // For `provider` proofs: the provider that verified the address. Only counts while that
+            // provider still exists and is trusted for email.
+            $table->string('provider', 64)->nullable();
             $table->timestamp('dateProven');
         });
     }

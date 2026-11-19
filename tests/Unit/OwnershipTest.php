@@ -5,6 +5,7 @@ declare(strict_types=1);
 use CraftCms\Cms\User\Elements\User;
 use JustinHoltWeb\PlusOne\Auth\EmailOwnership;
 use JustinHoltWeb\PlusOne\Auth\EmailProofs;
+use JustinHoltWeb\PlusOne\Listeners\RecordEmailProof;
 
 function account(array $props = []): User
 {
@@ -33,4 +34,25 @@ it('ties a proof to one address, case-insensitively', function () {
     expect(EmailProofs::hash(' Jo@Example.com '))->toBe(EmailProofs::hash('jo@example.com'))
         ->and(EmailProofs::hash('jo@example.com'))->not->toBe(EmailProofs::hash('victim@example.com'))
         ->and(strlen(EmailProofs::hash('a@b.c')))->toBe(64);
+});
+
+it('records only the address an emailed code certainly went to', function (?string $email, ?string $pending, ?string $expected) {
+    expect(RecordEmailProof::provenAddress($email, $pending))->toBe($expected);
+})->with([
+    'no pending change' => ['me@example.com', null, 'me@example.com'],
+    'new account (email = pending)' => ['me@example.com', 'ME@example.com', 'me@example.com'],
+    // A reset code went to me@; the pending victim@ must never be recorded, and me@ isn't
+    // certain either (a verify code would have gone to victim@).
+    'pending change to another address' => ['me@example.com', 'victim@example.com', null],
+    'no email' => [null, 'victim@example.com', null],
+]);
+
+it('counts provider proofs only from providers trusted for email now', function () {
+    $trusted = fn (string $h) => $h === 'google';
+
+    expect(EmailProofs::counts('email-link', null, $trusted))->toBeTrue()
+        ->and(EmailProofs::counts('provider', 'google', $trusted))->toBeTrue()
+        ->and(EmailProofs::counts('provider', 'sketchy', $trusted))->toBeFalse()
+        ->and(EmailProofs::counts('provider', null, $trusted))->toBeFalse()
+        ->and(EmailProofs::counts('made-up', 'google', $trusted))->toBeFalse();
 });

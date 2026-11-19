@@ -34,7 +34,7 @@ Craft 6 core ships OAuth login through Socialite (`CraftCms\Cms\Auth\OAuth`): pr
 3. **Front-end accounts.** ✅ Twig/Blade `plusone`: buttons, providers, accounts, connect/disconnect forms,
    messages. Connect needs the password when the user has one. Avatar/profile sync: name only (core's
    populator); avatar → asset not done (remote fetch into a volume; see questions).
-4. **Security.** ✅ No link by unverified email; email match also needs a Plus One email proof for the account's current address (`plusone_email_proofs`, recorded on core's `EmailVerified` and on provider-verified registration; voided by any email change — pre-hijack guard, 2026-11-19, two security reviews) and ends the account's other sessions; opt-in match by verified email; admins off by default; state
+4. **Security.** ✅ No link by unverified email; email match also needs a Plus One email proof for the account's current address (`plusone_email_proofs`, recorded on core's `EmailVerified` and on provider-verified registration; voided by any email change; email-link proofs only for the current address with no different pending one; provider proofs only from providers trusted for email, and only while they still are — pre-hijack guard, 2026-11-19, three security reviews) and ends the account's other sessions; opt-in match by verified email; admins off by default; state
    always, PKCE default; on-site returns only; no lockout on disconnect (front end and core's CP screen);
    existing users never activated/unsuspended; matched users' email never changed.
 5. **Multisite + translations.** ✅ Per-site providers, per-site callback URLs (incl. subpath sites), per-site
@@ -42,7 +42,7 @@ Craft 6 core ships OAuth login through Socialite (`CraftCms\Cms\Auth\OAuth`): pr
 6. **GraphQL.** ✅ `plusOneProviders(site:)` — handle, name, label, loginUrl; permission “List sign-in providers”.
 
 ## Status
-- **2026-11-18/19 — 6.0.0-beta.1 feature-complete.** 41 Pest tests; `tests/Harness/check.sh` 121 checks
+- **2026-11-18/19 — 6.0.0-beta.1 feature-complete.** 46 Pest tests; `tests/Harness/check.sh` 127 checks
   (with `PLUSONE_MULTISITE=1`; one run at a time, it cleans up leftovers first) against a local fake OAuth 2 / OIDC provider (`tests/Harness/fake-idp.php`,
   also mimicking Keycloak's URLs for `socialiteproviders/keycloak`). Pint, Larastan 6, port-check green.
 - Unverified (no credentials): real Google/GitHub/etc. Built-in Socialite drivers go through core's named-driver
@@ -59,6 +59,10 @@ Craft 6 core ships OAuth login through Socialite (`CraftCms\Cms\Auth\OAuth`): pr
   (`https://x.test/fr/`) the callback URL core generates 404s.
 - OAuth sign-in skips two-step verification (`finalizeLogin(..., skipTwoFactor: true)`), for admins too.
 - “Sign-in providers” disconnect doesn't check that another login method remains.
+- Activation, verify-email and set-password codes all come from one password broker, and
+  `processTokenRequest()` accepts any of them on any of those routes (from reading the source): a
+  password-reset code sent to the current address may be usable on the verify-email route to confirm
+  a pending change to another address.
 
 ## Questions for Justin
 1. Avatars: copy the provider's picture into a user photo (needs a remote fetch into an asset volume, so an

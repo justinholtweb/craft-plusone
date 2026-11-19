@@ -14,7 +14,8 @@ use Throwable;
  * Plus One's per-user “this email is proven” marker. Recorded when
  *  - Craft accepts a code it emailed (activation, email verification, password reset — core's
  *    `EmailVerified` event), for the address the code went to, or
- *  - Plus One registers or links a user with an address their provider verified.
+ *  - Plus One registers or links a user with an address a provider verified — only a provider set to
+ *    match by email, and the proof stops counting if that provider is removed or no longer trusted.
  * It holds a hash of the address, so it stops counting the moment the account's email changes,
  * however it changes. No marker (or no table) means not proven: matching by email fails closed.
  */
@@ -31,17 +32,23 @@ class EmailProofs
         return hash('sha256', mb_strtolower(trim($email)));
     }
 
-    public function record(User $user, string $email, string $method): void
+    public function record(User $user, string $email, string $method, ?string $provider = null): void
     {
         if (! $user->id || trim($email) === '' || ! $this->ready()) {
             return;
         }
 
-        DB::table(self::TABLE)->upsert(
-            [['userId' => $user->id, 'emailHash' => self::hash($email), 'method' => $method, 'dateProven' => now('UTC')]],
-            ['userId'],
-            ['emailHash', 'method', 'dateProven'],
-        );
+        // Never let bookkeeping break Craft's own sign-in or verification flow: a proof that
+        // isn't recorded just means no email match later (fail closed).
+        try {
+            DB::table(self::TABLE)->upsert(
+                [['userId' => $user->id, 'emailHash' => self::hash($email), 'method' => $method, 'provider' => $provider, 'dateProven' => now('UTC')]],
+                ['userId'],
+                ['emailHash', 'method', 'provider', 'dateProven'],
+            );
+        } catch (Throwable $e) {
+            Log::warning('Plus One couldn’t record an email proof: '.$e->getMessage());
+        }
     }
 
     /** Whether the user has proved owning the address their account has now. */
@@ -51,9 +58,41 @@ class EmailProofs
             return false;
         }
 
-        $hash = DB::table(self::TABLE)->where('userId', $user->id)->value('emailHash');
+        try {
+            $proof = DB::table(self::TABLE)->where('userId', $user->id)->first(['emailHash', 'method', 'provider']);
+        } catch (Throwable $e) {
+            Log::warning('Plus One couldn’t read its email proofs: '.$e->getMessage());
 
-        return is_string($hash) && hash_equals($hash, self::hash($user->email));
+            return false;
+        }
+
+        if ($proof === null || ! is_string($proof->emailHash) || ! hash_equals($proof->emailHash, self::hash($user->email))) {
+            return false;
+        }
+
+        return self::counts((string) $proof->method, is_string($proof->provider) ? $proof->provider : null, $this->providerTrustsEmail(...));
+    }
+
+    /**
+     * Whether a stored proof still counts. A provider's word only counts while that provider is
+     * configured and trusted for email.
+     *
+     * @param  callable(string): bool  $providerTrustsEmail
+     */
+    public static function counts(string $method, ?string $provider, callable $providerTrustsEmail): bool
+    {
+        return match ($method) {
+            self::METHOD_EMAIL_LINK => true,
+            self::METHOD_PROVIDER => $provider !== null && $provider !== '' && $providerTrustsEmail($provider),
+            default => false,
+        };
+    }
+
+    private function providerTrustsEmail(string $handle): bool
+    {
+        $definition = app(PlusOneOAuth::class)->allProviderDefinitions()->get($handle);
+
+        return $definition !== null && $definition->trustsEmail;
     }
 
     private function ready(): bool

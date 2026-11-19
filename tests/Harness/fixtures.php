@@ -14,6 +14,7 @@ use CraftCms\Cms\User\UserPermissions;
 use CraftCms\Cms\User\Users;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 $groups = [];
 foreach (['plusoneMembers' => 'Plus One Members', 'plusoneEditors' => 'Plus One Editors'] as $handle => $name) {
@@ -34,6 +35,8 @@ $people = [
     'plusone_unv' => ['admin' => false, 'password' => 'attacker-Pass-1', 'groups' => [], 'unverified' => true],
     // Proves its email, then has it changed (as an admin could, with verification off) to a victim's.
     'plusone_mover' => ['admin' => false, 'password' => 'attacker-Pass-1', 'groups' => []],
+    // Has a pending email change to a victim's address, then completes a reset on its own address.
+    'plusone_swap' => ['admin' => false, 'password' => 'attacker-Pass-1', 'groups' => []],
 ];
 
 $ids = [];
@@ -52,7 +55,7 @@ foreach ($people as $username => $p) {
 }
 
 DB::table('sso_identities')->whereIn('userId', array_values($ids))->delete();
-if (Illuminate\Support\Facades\Schema::hasTable('plusone_email_proofs')) {
+if (Schema::hasTable('plusone_email_proofs')) {
     DB::table('plusone_email_proofs')->whereIn('userId', array_values($ids))->delete();
 }
 

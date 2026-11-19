@@ -67,7 +67,7 @@ class SafeUserResolver implements ResolvesOAuthUser
 
             // A new way into this account: sessions and remember-me tokens from before don't carry over.
             $this->users->destroyOtherSessions($existing);
-            $this->noteVerifiedEmail($email);
+            $this->noteVerifiedEmail($email, $provider);
 
             return $existing;
         }
@@ -87,18 +87,20 @@ class SafeUserResolver implements ResolvesOAuthUser
             throw new LoginRefused(LoginRefused::DOMAIN, $provider->handle);
         }
 
-        if ($verified) {
-            $this->noteVerifiedEmail($email);
+        // Only a provider trusted for email may vouch for an address: otherwise any provider with a
+        // weak `email_verified` could mint a proof that a trusted provider's match then relies on.
+        if ($verified && $provider->trustsEmail) {
+            $this->noteVerifiedEmail($email, $provider);
         }
 
         return null;
     }
 
     /** Lets the OAuth service record the proof once the identity is linked (the user may not exist yet). */
-    protected function noteVerifiedEmail(string $email): void
+    protected function noteVerifiedEmail(string $email, ProviderDefinition $provider): void
     {
         if ($this->oauth instanceof PlusOneOAuth) {
-            $this->oauth->noteVerifiedEmail($email);
+            $this->oauth->noteVerifiedEmail($email, $provider->handle);
         }
     }
 
