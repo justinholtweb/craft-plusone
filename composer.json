@@ -1,6 +1,6 @@
 {
     "name": "justinholtweb/craft-plusone",
-    "description": "Social login, managed in the CP — every SocialiteProviders provider, front-end connected-accounts, on top of Craft 6's own OAuth.",
+    "description": "Social login for Craft 6, managed in the control panel: CP-managed Socialite providers, every SocialiteProviders package, front-end sign-in and connected accounts, built on Craft's own OAuth.",
     "type": "craft-plugin",
     "version": "6.0.0-beta.1",
     "keywords": [
@@ -22,7 +22,8 @@
     ],
     "require": {
         "php": "^8.5",
-        "craftcms/cms": "^6.0.0-beta.1"
+        "craftcms/cms": "^6.0.0-beta.1",
+        "laravel/socialite": "^5.23"
     },
     "require-dev": {
         "larastan/larastan": "^3.13",
@@ -30,7 +31,8 @@
         "orchestra/testbench": "^11.0",
         "pestphp/pest": "^5.0",
         "pestphp/pest-plugin-laravel": "^5.0",
-        "phpstan/phpstan": "^2.1"
+        "phpstan/phpstan": "^2.1",
+        "socialiteproviders/manager": "^4.8"
     },
     "autoload": {
         "psr-4": {
@@ -70,5 +72,8 @@
         "documentationUrl": "https://github.com/justinholtweb/craft-plusone",
         "changelogUrl": "https://raw.githubusercontent.com/justinholtweb/craft-plusone/main/CHANGELOG.md",
         "class": "JustinHoltWeb\\PlusOne\\Plugin"
+    },
+    "suggest": {
+        "socialiteproviders/manager": "Lets Plus One offer any of the 100+ SocialiteProviders packages you install (composer require socialiteproviders/<name>)."
     }
 }

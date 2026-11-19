@@ -1,0 +1,85 @@
+<?php
+
+declare(strict_types=1);
+
+namespace JustinHoltWeb\PlusOne\Auth;
+
+use CraftCms\Cms\Auth\OAuth\Contracts\ResolvesOAuthUser;
+use CraftCms\Cms\Auth\OAuth\Data\ProviderDefinition;
+use CraftCms\Cms\Auth\OAuth\Events\OAuthUserLinkResolving;
+use CraftCms\Cms\Auth\OAuth\OAuth;
+use CraftCms\Cms\User\Elements\User;
+use JustinHoltWeb\PlusOne\Settings;
+use Laravel\Socialite\Contracts\User as SocialiteUser;
+
+/**
+ * Who an OAuth identity signs in as — the account-takeover guard.
+ *
+ *  1. An identity already linked to a user signs in as that user (unless it's an admin and admins are off).
+ *  2. Craft's `OAuthUserLinkResolving` event can still pick a user (same admin rule).
+ *  3. An email that matches an existing account links to it ONLY if the provider is set to link by
+ *     email, the provider verified that address, and the account isn't an admin's. Otherwise the
+ *     sign-in is refused — it never creates a second account with the same email, and never links.
+ *  4. No match: a new user may be registered (Craft then applies public-registration / “New users”),
+ *     but only with a verified email (when required) at an allowed domain.
+ *
+ * Refusals throw {@see LoginRefused}; Craft shows its generic “Authentication failed.”.
+ */
+class SafeUserResolver implements ResolvesOAuthUser
+{
+    public function __construct(
+        protected readonly OAuth $oauth,
+        protected readonly Settings $settings,
+    ) {}
+
+    public function handle(ProviderDefinition $provider, SocialiteUser $socialiteUser, string $identity): ?User
+    {
+        if ($user = $this->oauth->findLinkedUser($provider, $identity)) {
+            return $this->guardAdmin($user, $provider);
+        }
+
+        event($event = new OAuthUserLinkResolving($provider, $socialiteUser, $identity));
+
+        if ($event->user) {
+            return $this->guardAdmin($event->user, $provider);
+        }
+
+        $email = $socialiteUser->getEmail();
+        $email = is_string($email) ? trim($email) : '';
+        $verified = EmailVerification::isVerified($provider, $socialiteUser);
+
+        if ($email !== '' && ($existing = $this->oauth->findUserByEmail($email))) {
+            if (! $provider->trustsEmail || ! $verified) {
+                throw new LoginRefused($verified ? LoginRefused::EMAIL_IN_USE : LoginRefused::UNVERIFIED_EMAIL, $provider->handle);
+            }
+
+            return $this->guardAdmin($existing, $provider);
+        }
+
+        // Registration rules. (Whether registration is allowed at all is Craft's call, after this.)
+        if ($email === '') {
+            throw new LoginRefused(LoginRefused::NO_EMAIL, $provider->handle);
+        }
+
+        if ($this->settings->requireVerifiedEmail && ! $verified) {
+            throw new LoginRefused(LoginRefused::UNVERIFIED_EMAIL, $provider->handle);
+        }
+
+        $domains = $this->settings->allowedDomains();
+
+        if ($domains !== [] && ! in_array(EmailVerification::domain($email), $domains, true)) {
+            throw new LoginRefused(LoginRefused::DOMAIN, $provider->handle);
+        }
+
+        return null;
+    }
+
+    protected function guardAdmin(User $user, ProviderDefinition $provider): User
+    {
+        if ($user->admin && ! $this->settings->allowAdmins) {
+            throw new LoginRefused(LoginRefused::ADMIN, $provider->handle);
+        }
+
+        return $user;
+    }
+}
