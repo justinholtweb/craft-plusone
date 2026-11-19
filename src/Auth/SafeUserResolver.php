@@ -20,8 +20,8 @@ use Laravel\Socialite\Contracts\User as SocialiteUser;
  *  2. Craft's `OAuthUserLinkResolving` event can still pick a user (same admin rule).
  *  3. An email that matches an existing account links to it ONLY if the provider is set to link by
  *     email, the provider verified that address, Craft vouches the account owns it too
- *     ({@see EmailOwnership}: not pending, no unverified email change, registration verifies
- *     emails), and the account isn't an admin's. The account's other sessions end. Otherwise the
+ *     ({@see EmailOwnership}: active, no unverified email change, and a Plus One proof for
+ *     the account's current address), and the account isn't an admin's. The account's other sessions end. Otherwise the
  *     sign-in is refused — it never creates a second account with the same email, and never links.
  *  4. No match: a new user may be registered (Craft then applies public-registration / “New users”),
  *     but only with a verified email (when required) at an allowed domain.
@@ -67,6 +67,7 @@ class SafeUserResolver implements ResolvesOAuthUser
 
             // A new way into this account: sessions and remember-me tokens from before don't carry over.
             $this->users->destroyOtherSessions($existing);
+            $this->noteVerifiedEmail($email);
 
             return $existing;
         }
@@ -86,7 +87,19 @@ class SafeUserResolver implements ResolvesOAuthUser
             throw new LoginRefused(LoginRefused::DOMAIN, $provider->handle);
         }
 
+        if ($verified) {
+            $this->noteVerifiedEmail($email);
+        }
+
         return null;
+    }
+
+    /** Lets the OAuth service record the proof once the identity is linked (the user may not exist yet). */
+    protected function noteVerifiedEmail(string $email): void
+    {
+        if ($this->oauth instanceof PlusOneOAuth) {
+            $this->oauth->noteVerifiedEmail($email);
+        }
     }
 
     protected function guardAdmin(User $user, ProviderDefinition $provider): User

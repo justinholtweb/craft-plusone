@@ -32,6 +32,8 @@ $people = [
     // Pre-hijack attempts: accounts that hold an email address nobody has proved owning.
     'plusone_pre' => ['admin' => false, 'password' => 'attacker-Pass-1', 'groups' => [], 'pending' => true],
     'plusone_unv' => ['admin' => false, 'password' => 'attacker-Pass-1', 'groups' => [], 'unverified' => true],
+    // Proves its email, then has it changed (as an admin could, with verification off) to a victim's.
+    'plusone_mover' => ['admin' => false, 'password' => 'attacker-Pass-1', 'groups' => []],
 ];
 
 $ids = [];
@@ -50,5 +52,8 @@ foreach ($people as $username => $p) {
 }
 
 DB::table('sso_identities')->whereIn('userId', array_values($ids))->delete();
+if (Illuminate\Support\Facades\Schema::hasTable('plusone_email_proofs')) {
+    DB::table('plusone_email_proofs')->whereIn('userId', array_values($ids))->delete();
+}
 
 echo json_encode($ids);

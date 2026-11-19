@@ -85,6 +85,10 @@ xsrf() { awk '$6=="XSRF-TOKEN"{print $7}' "$1" | tail -1 | python3 -I -c 'import
 post() { local j=$1; shift; curl -sk -c "$j" -b "$j" -X POST -H "X-XSRF-TOKEN: $(xsrf "$j")" -o /dev/null -w '%{http_code} %{redirect_url}' "$@"; }
 idlink() { tk "echo Illuminate\\Support\\Facades\\DB::table('sso_identities')->where('provider','$1')->where('identityId','$2')->value('userId') ?? 'none';"; }
 uid() { tk "echo CraftCms\\Cms\\User\\Elements\\User::find()->${2:-username}('$1')->status(null)->one()?->id ?? 'none';"; }
+# prove USERNAME: follow a real password-reset link Craft generated for the account, which is how
+# a user proves owning their email (core's EmailVerified event → Plus One's proof).
+prove() { local url; url=$(tk "echo app(CraftCms\\Cms\\User\\Users::class)->getPasswordResetUrl(CraftCms\\Cms\\User\\Elements\\User::find()->username('$1')->status(null)->one());"); curl -sk -o /dev/null -w '%{http_code}' "$url"; }
+proof() { tk "echo Illuminate\\Support\\Facades\\DB::table('plusone_email_proofs')->where('userId', $1)->value('method') ?? 'none';"; }
 last() { tk "echo json_encode(Illuminate\\Support\\Facades\\Cache::get('plusone-idp:last'));"; }
 usercount() { tk "echo CraftCms\\Cms\\User\\Elements\\User::find()->email('plusone_alice*')->status(null)->count();"; }
 # Forget that this browser's session recently confirmed a password (signing in counts as confirming),
@@ -121,6 +125,7 @@ ok "twig: signed in as the new user" "$(who "$J")" "plusone_alice@plusone.test"
 ALICE=$(uid plusone_alice@plusone.test email)
 ok "identity linked to the new user" "$(idlink plusone-fake plusone-alice)" "$ALICE"
 ok "new user is active and in the default group" "$(tk "\$u=CraftCms\\Cms\\User\\Elements\\User::find()->id($ALICE)->status(null)->one(); echo \$u->getStatus().'/'.implode(',', array_map(fn(\$g)=>\$g->handle, \$u->getGroups()));")" "active/plusoneMembers"
+ok "new user's provider-verified email is recorded as proven" "$(proof "$ALICE")" "provider"
 ok "new user has no password and isn't an admin" "$(tk "echo json_encode([Illuminate\\Support\\Facades\\DB::table('users')->where('id',$ALICE)->value('password'), (bool) Illuminate\\Support\\Facades\\DB::table('users')->where('id',$ALICE)->value('admin')]);")" "[null,false]"
 J2=$(jar)
 login "$J2" 'sub=plusone-alice&email=plusone_alice@plusone.test&verified=1' >/dev/null
@@ -161,6 +166,14 @@ ok "pre-hijack: pending (never verified) account with the email → refused" "$(
 J=$(jar); login "$J" 'sub=plusone-victim2&email=plusone_unv@plusone.test&verified=1' >/dev/null; P=$(page "$J" account)
 ok "pre-hijack: active account whose email is still unverified in Craft → refused, not linked" "$(echo "$P" | field user)/$(idlink plusone-fake plusone-victim2)" "guest/none"
 ok "…and told to sign in with their password and connect from their account" "$(echo "$P" | field message | grep -ci 'sign in with your password')" "1"
+J=$(jar)
+ok "existing account never proved its email (admin/console-created) → refused, not linked" "$(login "$J" 'sub=plusone-bob-g&email=plusone_bob@plusone.test&verified=1' >/dev/null; who "$J")/$(idlink plusone-fake plusone-bob-g)" "guest/none"
+ok "bob proves his email with a real password-reset link" "$(prove plusone_bob)/$(proof "$BOB")" "200/email-link"
+MOVER=$(uid plusone_mover)
+ok "mover proves its email" "$(prove plusone_mover)/$(proof "$MOVER")" "200/email-link"
+tk "\$u=CraftCms\\Cms\\User\\Elements\\User::find()->id($MOVER)->status(null)->one(); \$u->email='plusone_victim3@plusone.test'; echo CraftCms\\Cms\\Support\\Facades\\Elements::saveElement(\$u, false) ? 1 : 0;" >/dev/null
+J=$(jar)
+ok "email changed to a victim's without verification → the old proof doesn't count, refused" "$(login "$J" 'sub=plusone-victim3&email=plusone_victim3@plusone.test&verified=1' >/dev/null; who "$J")/$(idlink plusone-fake plusone-victim3)/$(tk "echo CraftCms\\Cms\\User\\Elements\\User::find()->id($MOVER)->status(null)->one()->email;")" "guest/none/plusone_victim3@plusone.test"
 conf '{"fake.linkByEmail": false}'
 J=$(jar)
 ok "existing email, verified, but provider not set to match by email → refused" "$(login "$J" 'sub=plusone-bob-g&email=plusone_bob@plusone.test&verified=1')/$(who "$J")" "302 $ACCOUNT/guest"

@@ -20,6 +20,7 @@ use CraftCms\Cms\Ui\Nodes\Heading;
 use CraftCms\Cms\Ui\Nodes\MarkdownContent;
 use CraftCms\Cms\Ui\Ui;
 use CraftCms\Cms\Ui\UiContext;
+use CraftCms\Cms\User\Events\EmailVerified;
 use CraftCms\Cms\View\Events\TemplateGlobalsResolving;
 use Illuminate\Routing\Router;
 use JustinHoltWeb\PlusOne\Auth\PlusOneOAuth;
@@ -46,6 +47,7 @@ class Plugin extends BasePlugin
     protected array $events = [
         TemplateGlobalsResolving::class => Listeners\RegisterTemplateApi::class,
         GqlSchemaComponentsResolving::class => Listeners\RegisterGqlComponents::class,
+        EmailVerified::class => Listeners\RecordEmailProof::class,
     ];
 
     public function boot(): void

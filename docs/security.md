@@ -16,14 +16,39 @@ in to that account **only if** all of these hold:
 1. the provider has **Match by verified email** on,
 2. the provider says it **verified** that address (`email_verified` / `verified_email` claim; GitHub only
    returns verified addresses), and
-3. **Craft vouches that the account owns the address too**: the account is active (not pending),
-   not suspended or locked, has no email change awaiting verification, and Craft's registration
-   can't hand out unverified emails (public registration off, or on with *Verify email addresses*), and
+3. **the account has proved owning its current address**, and is active (not pending), not
+   suspended or locked, with no email change awaiting verification, and
 4. the account isn't an admin's (unless **Allow admins** is on).
 
-Point 3 stops **account pre-hijacking**: someone registering an account with *your* email before you
-ever sign in with Google, then waiting for your social login to land in an account whose password
-they know. A provider verifying an address proves the visitor owns it, not who created the account.
+Point 3 stops **account pre-hijacking**: someone registering an account with *your* email (or
+changing an account's email to yours) before you ever sign in with Google, then waiting for your
+social login to land in an account whose password they know. A provider verifying an address proves
+the *visitor* owns it, not who created the account or last changed its email.
+
+### Email proofs
+
+Plus One keeps its own per-user record of which address an account has proved owning
+(`plusone_email_proofs`, a hash of the address). A proof is recorded when:
+
+- someone follows a link Craft emailed — activation, email verification or password reset (core's
+  `EmailVerified` event) — for the address that link was sent to, or
+- Plus One registers a user, or links one by email, with an address the provider verified.
+
+The proof is for one address. **Any** change to the account's email voids it, however it was made
+(front end with verification off, the control panel, the console, an import), until a new link
+comes back. Craft's own settings (public registration, *Verify email addresses*, edition) don't
+come into it.
+
+**Residual risk, plainly:**
+
+- Accounts that have never followed an emailed link — created in the control panel, the console or
+  an import, and existing accounts from before Plus One was installed — can't be matched by email
+  until they do (a password reset is enough). They can still sign in with their password and connect
+  a provider from their account. This fails closed, never open.
+- An admin can copy an account's activation or password-reset URL in the control panel and open it
+  without the email ever being sent; that counts as a proof. Admins are trusted with accounts anyway.
+- *Match by verified email* trusts the provider's `email_verified` claim. It's **off** by default for
+  every provider; turn it on only for providers whose verification you trust.
 
 When an email match links an account, the account's other sessions end and its remember-me token
 is cycled.

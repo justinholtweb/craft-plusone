@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use CraftCms\Cms\User\Elements\User;
 use JustinHoltWeb\PlusOne\Auth\EmailOwnership;
+use JustinHoltWeb\PlusOne\Auth\EmailProofs;
 
 function account(array $props = []): User
 {
@@ -15,15 +16,21 @@ function account(array $props = []): User
     return $user;
 }
 
-it('only vouches for accounts whose email Craft has verified', function (array $props, bool $publicReg, bool $verify, bool $expected) {
-    expect(EmailOwnership::isProven(account($props), $publicReg, $verify))->toBe($expected);
+it('only matches accounts with a proof for their current email, in a good state', function (array $props, bool $proof, bool $expected) {
+    expect(EmailOwnership::isProven(account($props), $proof))->toBe($expected);
 })->with([
-    'active, registration verifies emails' => [[], true, true, true],
-    'active, no public registration' => [[], false, false, true],
-    'pending (never verified)' => [['pending' => true, 'active' => false], true, true, false],
-    'inactive' => [['active' => false], false, true, false],
-    'suspended' => [['suspended' => true], false, true, false],
-    'locked' => [['locked' => true], false, true, false],
-    'email change awaiting verification' => [['unverifiedEmail' => 'x@example.com'], false, true, false],
-    'public registration without email verification' => [[], true, false, false],
+    'active and proven' => [[], true, true],
+    // Admin/console/import-created, or email changed with verification off: no proof for this address.
+    'active but never proven' => [[], false, false],
+    'pending (never verified)' => [['pending' => true, 'active' => false], true, false],
+    'inactive' => [['active' => false], true, false],
+    'suspended' => [['suspended' => true], true, false],
+    'locked' => [['locked' => true], true, false],
+    'email change awaiting verification' => [['unverifiedEmail' => 'x@example.com'], true, false],
 ]);
+
+it('ties a proof to one address, case-insensitively', function () {
+    expect(EmailProofs::hash(' Jo@Example.com '))->toBe(EmailProofs::hash('jo@example.com'))
+        ->and(EmailProofs::hash('jo@example.com'))->not->toBe(EmailProofs::hash('victim@example.com'))
+        ->and(strlen(EmailProofs::hash('a@b.c')))->toBe(64);
+});

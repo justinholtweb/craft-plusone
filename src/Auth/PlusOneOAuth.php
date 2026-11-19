@@ -51,6 +51,9 @@ class PlusOneOAuth extends OAuth
     /** @var array<string, true> Handles of definitions that came from Plus One. */
     private array $managedHandles = [];
 
+    /** An address the provider verified during this sign-in, to record once the identity is linked. */
+    private ?string $verifiedEmail = null;
+
     public function __construct(
         private readonly GeneralConfig $config,
         private readonly ProjectConfig $projects,
@@ -250,6 +253,27 @@ class PlusOneOAuth extends OAuth
         }
 
         return array_values(array_unique($ids));
+    }
+
+    public function noteVerifiedEmail(string $email): void
+    {
+        $this->verifiedEmail = $email;
+    }
+
+    /**
+     * Core links the identity after saving a new user (or signing in a matched one). If the
+     * provider verified the address that account now has, that's proof the user owns it.
+     */
+    #[\Override]
+    public function linkIdentity(User $user, ProviderDefinition $provider, string $identity): void
+    {
+        parent::linkIdentity($user, $provider, $identity);
+
+        if ($this->verifiedEmail !== null && is_string($user->email) && mb_strtolower(trim($user->email)) === mb_strtolower(trim($this->verifiedEmail))) {
+            app(EmailProofs::class)->record($user, $user->email, EmailProofs::METHOD_PROVIDER);
+        }
+
+        $this->verifiedEmail = null;
     }
 
     /** Whether this request is the control panel's (or a CP sign-in's callback). */
