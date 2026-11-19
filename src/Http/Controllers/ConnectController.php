@@ -49,7 +49,7 @@ class ConnectController
     {
         $user = $this->requireUser($request);
         $return = $this->returnUrl($request);
-        $definition = $this->oauth->getProviderDefinition($provider);
+        $definition = $this->oauth->siteDefinition($provider);
 
         if (! $definition) {
             abort(404);

@@ -317,6 +317,7 @@ if [ "${PLUSONE_MULTISITE:-0}" = 1 ]; then
   ok "multisite: gql fixtures with plusonefr" "$(run plusone-gql-fixtures.php)" "ok"
   ok "multisite: provider limited to default → not on plusonefr (Twig = Blade)" "$(page "$(jar)" account plusonefr/ | field providers)/$(page "$(jar)" account-blade plusonefr/ | field providers)" "plusone-kc=Fake Keycloak/plusone-kc=Fake Keycloak"
   ok "multisite: …its login and callback 404 there" "$(curl -sk -o /dev/null -w '%{http_code}' "$U/plusonefr/actions/plusone/login/plusone-fake")/$(curl -sk -o /dev/null -w '%{http_code}' "$U/plusonefr/actions/plusone/callback/plusone-fake?code=x&state=y")" "404/404"
+  ok "multisite: …even with ?context=cp (the CP-login switch doesn't widen a site)" "$(curl -sk -o /dev/null -w '%{http_code}' "$U/plusonefr/actions/plusone/login/plusone-fake?context=cp")" "404"
   J=$(jar)
   frstart=$(curl -sk -c "$J" -b "$J" -o /dev/null -w '%{redirect_url}' "$U/plusonefr/actions/plusone/login/plusone-kc?return=/plusone/account")
   ok "multisite: per-site callback URL" "$(python3 -I -c 'import sys,urllib.parse as u; print(u.parse_qs(u.urlparse(sys.argv[1]).query)["redirect_uri"][0])' "$frstart")" "$U/plusonefr/actions/plusone/callback/plusone-kc"

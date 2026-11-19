@@ -25,7 +25,7 @@ class LoginController
     public function __invoke(Request $request, PlusOneOAuth $oauth, string $provider): Response
     {
         abort_unless(PlusOneOAuth::isAvailable(), 404);
-        abort_if(! $definition = $oauth->getProviderDefinition($provider), 404);
+        abort_if(! $definition = $oauth->siteDefinition($provider), 404);
 
         $site = Sites::getCurrentSite();
         $return = ReturnUrl::resolve(

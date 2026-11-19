@@ -10,6 +10,7 @@ use CraftCms\Cms\Support\Facades\Sites;
 use CraftCms\Cms\Support\Flash;
 use CraftCms\Cms\Support\Html;
 use CraftCms\Cms\User\Elements\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use JustinHoltWeb\PlusOne\Auth\LoginMethods;
@@ -46,7 +47,7 @@ class PlusOneVariable
      */
     public function providers(?string $return = null): array
     {
-        return $this->oauth->getProviderDefinitions()
+        return $this->siteDefinitions()
             ->map(fn (ProviderDefinition $d) => [
                 'handle' => $d->handle,
                 'name' => $d->name,
@@ -94,7 +95,7 @@ class PlusOneVariable
         }
 
         $connected = $this->loginMethods->connectedHandles($user);
-        $definitions = $this->oauth->getProviderDefinitions();
+        $definitions = $this->siteDefinitions();
         $rows = [];
 
         foreach ($definitions as $definition) {
@@ -134,7 +135,7 @@ class PlusOneVariable
     /** A POST form (with CSRF token, and a password field when needed) that connects a provider. */
     public function connectForm(string $handle, ?string $return = null, ?string $label = null): HtmlString
     {
-        $definition = $this->oauth->getProviderDefinition($handle);
+        $definition = $this->oauth->siteDefinition($handle);
         $user = $this->currentUser();
 
         if (! $definition || ! $user || ! $this->settings->frontEndLinking || in_array($handle, $this->loginMethods->connectedHandles($user), true)) {
@@ -200,6 +201,14 @@ class PlusOneVariable
             .Html::tag('button', e($label), ['type' => 'submit']),
             ['method' => 'post', 'action' => $action, 'class' => $class],
         ));
+    }
+
+    /** @return Collection<string, ProviderDefinition> */
+    private function siteDefinitions(): Collection
+    {
+        $site = rescue(fn () => Sites::getCurrentSite(), null, false);
+
+        return $site ? $this->oauth->definitionsForSite($site) : collect();
     }
 
     private function currentUser(): ?User

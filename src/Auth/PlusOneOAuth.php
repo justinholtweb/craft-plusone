@@ -120,6 +120,14 @@ class PlusOneOAuth extends OAuth
         return $this->allProviderDefinitions()->filter(fn (ProviderDefinition $d) => $this->availableOnSite($d, $site));
     }
 
+    /** A provider that signs in on the current site's front end (ignores `?context=cp`). */
+    public function siteDefinition(string $handle): ?ProviderDefinition
+    {
+        $site = rescue(fn () => Sites::getCurrentSite(), null, false);
+
+        return $site ? $this->definitionsForSite($site)->get($handle) : null;
+    }
+
     public function availableOnSite(ProviderDefinition $definition, Site $site): bool
     {
         $managed = $this->managed($definition);
