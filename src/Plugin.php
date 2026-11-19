@@ -116,7 +116,7 @@ class Plugin extends BasePlugin
                 ->defaultValues(['enabled' => true, 'sites' => '*', 'pkce' => true, 'newUsers' => ManagedProvider::NEW_USERS_DEFAULT])
                 ->allowAdd()->allowDelete()->allowReorder()
                 ->addRowLabel(t('Add a provider', category: 'plusone')))
-                ->instructions(t('Client secrets must be environment variable references (`$GOOGLE_CLIENT_SECRET`): Plus One never stores or shows a secret. **Sites**: `*` or site handles; **CP login** adds the button to the control panel’s login page. **Match by verified email** lets someone sign in to an existing account with the same email, but only when the provider says it verified that address (never for admins). **Options**, `key=value; …`: `groups=handle` (groups for new users), `param.name=value` (extra authorization parameters, e.g. Google’s `param.hd`), OpenID Connect’s `authorize=`, `token=`, `userinfo=` URLs, and a SocialiteProviders package’s own keys (Keycloak: `base_url=…; realms=…`).', category: 'plusone')),
+                ->instructions(t('Client secrets must be environment variable references (`$GOOGLE_CLIENT_SECRET`): Plus One never stores or shows a secret. **Sites**: `*` or site handles; **CP login** adds the button to the control panel’s login page. **Match by verified email** lets someone sign in to an existing account with the same email, but only when the provider says it verified that address and Craft has verified the account’s email too (never for admins). **Options**, `key=value; …`: `groups=handle` (groups for new users), `param.name=value` (extra authorization parameters, e.g. Google’s `param.hd`), OpenID Connect’s `authorize=`, `token=`, `userinfo=` URLs, and a SocialiteProviders package’s own keys (Keycloak: `base_url=…; realms=…`).', category: 'plusone')),
             MarkdownContent::make('plusone-status', $this->statusMarkdown()),
             Heading::make('plusone-registration', t('Registration rules', category: 'plusone'))
                 ->description(t('Applied to every provider, including those in config/general.php. Whether new users can register at all follows each provider’s “New users” and Craft’s public registration setting.', category: 'plusone')),
@@ -165,7 +165,7 @@ class Plugin extends BasePlugin
                 ! $definitions->has($handle) => t('**not ready**: see the log', category: 'plusone'),
                 default => t('ready', category: 'plusone'),
             };
-            $lines[] = "- **".e($managed->name)."** (`{$handle}`, ".DriverCatalogue::label($managed->driver)."): {$state}";
+            $lines[] = '- **'.e($managed->name)."** (`{$handle}`, ".DriverCatalogue::label($managed->driver)."): {$state}";
 
             $definition = $definitions->get($handle);
             if ($definition instanceof ProviderDefinition) {

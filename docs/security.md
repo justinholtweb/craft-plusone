@@ -16,11 +16,23 @@ in to that account **only if** all of these hold:
 1. the provider has **Match by verified email** on,
 2. the provider says it **verified** that address (`email_verified` / `verified_email` claim; GitHub only
    returns verified addresses), and
-3. the account isn't an admin's (unless **Allow admins** is on).
+3. **Craft vouches that the account owns the address too**: the account is active (not pending),
+   not suspended or locked, has no email change awaiting verification, and Craft's registration
+   can't hand out unverified emails (public registration off, or on with *Verify email addresses*), and
+4. the account isn't an admin's (unless **Allow admins** is on).
+
+Point 3 stops **account pre-hijacking**: someone registering an account with *your* email before you
+ever sign in with Google, then waiting for your social login to land in an account whose password
+they know. A provider verifying an address proves the visitor owns it, not who created the account.
+
+When an email match links an account, the account's other sessions end and its remember-me token
+is cycled.
 
 Otherwise the sign-in is refused — it never links the account and never creates a second account with
-the same email. The visitor sees Craft's generic “Authentication failed.”, so the page doesn't reveal
-whether an email has an account. The reason is in the log.
+the same email. When the provider verified the email (so the visitor owns it), they're told an account
+already exists and to sign in with their password and connect the provider from their account.
+In every other case they see Craft's generic “Authentication failed.”, so the page doesn't reveal
+whether an email has an account. The reason is always in the log.
 
 A matched account's email is never changed by the provider.
 

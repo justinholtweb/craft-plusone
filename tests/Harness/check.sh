@@ -155,13 +155,19 @@ ok "…not linked" "$(idlink plusone-fake plusone-evil1)" "none"
 J=$(jar)
 ok "existing email, no verification claim at all → refused" "$(login "$J" 'sub=plusone-evil2&email=plusone_bob@plusone.test')/$(who "$J")" "302 $ACCOUNT/guest"
 ok "…and no second account with that email" "$(tk "echo CraftCms\\Cms\\User\\Elements\\User::find()->email('plusone_bob@plusone.test')->status(null)->count();")" "1"
+# Pre-hijacking: an account holding the victim's email that nobody proved owning must never be linked to.
+J=$(jar)
+ok "pre-hijack: pending (never verified) account with the email → refused" "$(login "$J" 'sub=plusone-victim1&email=plusone_pre@plusone.test&verified=1' >/dev/null; who "$J")/$(idlink plusone-fake plusone-victim1)" "guest/none"
+J=$(jar); login "$J" 'sub=plusone-victim2&email=plusone_unv@plusone.test&verified=1' >/dev/null; P=$(page "$J" account)
+ok "pre-hijack: active account whose email is still unverified in Craft → refused, not linked" "$(echo "$P" | field user)/$(idlink plusone-fake plusone-victim2)" "guest/none"
+ok "…and told to sign in with their password and connect from their account" "$(echo "$P" | field message | grep -ci 'sign in with your password')" "1"
 conf '{"fake.linkByEmail": false}'
 J=$(jar)
 ok "existing email, verified, but provider not set to match by email → refused" "$(login "$J" 'sub=plusone-bob-g&email=plusone_bob@plusone.test&verified=1')/$(who "$J")" "302 $ACCOUNT/guest"
 conf
 J=$(jar)
 ok "existing email, verified, provider matches by email → signs in as that user" "$(login "$J" 'sub=plusone-bob-g&email=plusone_bob@plusone.test&verified=1')/$(who "$J")" "302 $ACCOUNT/plusone_bob"
-ok "…and links the identity" "$(idlink plusone-fake plusone-bob-g)" "$BOB"
+ok "…and links the identity (bob's account email is verified in Craft)" "$(idlink plusone-fake plusone-bob-g)" "$BOB"
 J=$(jar)
 ok "matched user's email isn't changed by the provider (case-variant email)" "$(login "$J" 'sub=plusone-bob-g&email=PLUSONE_BOB@plusone.test&verified=1' >/dev/null; tk "echo CraftCms\\Cms\\User\\Elements\\User::find()->id($BOB)->status(null)->one()->email;")" "plusone_bob@plusone.test"
 J=$(jar)

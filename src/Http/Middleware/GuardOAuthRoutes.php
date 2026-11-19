@@ -16,6 +16,7 @@ use CraftCms\Cms\User\Elements\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use JustinHoltWeb\PlusOne\Auth\LoginMethods;
+use JustinHoltWeb\PlusOne\Auth\LoginRefused;
 use JustinHoltWeb\PlusOne\Http\Controllers\CallbackController;
 use JustinHoltWeb\PlusOne\Settings;
 use Symfony\Component\HttpFoundation\Response;
@@ -67,10 +68,17 @@ class GuardOAuthRoutes
             return redirect($connectReturn ?? cp_url('myaccount/sign-in-providers'));
         }
 
+        LoginRefused::forget();
         $response = $next($request);
 
         if (! $response instanceof RedirectResponse) {
             return $response;
+        }
+
+        // The visitor proved they own the email (the provider verified it), so saying an account
+        // exists reveals nothing to them, and tells them how to get in.
+        if (in_array(LoginRefused::last()?->reason, [LoginRefused::EMAIL_UNPROVEN, LoginRefused::EMAIL_IN_USE], true)) {
+            Flash::error(t('There’s already an account with this email address. Sign in with your password, then connect this provider from your account.', category: 'plusone'), target: 'login');
         }
 
         if ($connectReturn !== null) {

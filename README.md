@@ -34,8 +34,9 @@ screen and identity table do the work — and adds:
 
 ## Account-takeover guards
 
-- Never links to an existing account by an **unverified** email — only when the provider verified it and
-  the provider is set to match by email; otherwise refused, never a duplicate account.
+- Never links to an existing account by an **unverified** email — only when the provider verified it,
+  the provider is set to match by email, and Craft has verified the account's email too (stops
+  pre-registered “hijack” accounts); otherwise refused, never a duplicate account.
 - `state` on every provider (no stateless) and **PKCE** by default.
 - Only **on-site** return URLs.
 - **Admins** can't sign in with, connect or be matched to a social account unless you allow it (Craft

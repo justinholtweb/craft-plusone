@@ -20,7 +20,7 @@ Providers live in **Settings → Plugins → Plus One** (stored in project confi
 | **Sites** | `*` for every site, or site handles. See [Multisite](multisite). |
 | **CP login** | Offer it on the control panel's login page. |
 | **New users** | *If public registration is on* (Craft's setting), *Always register* or *Never register*. |
-| **Match by verified email** | Let someone sign in to an existing account with the same email — only when the provider says it verified the address, and never for admins. See [Security](security). |
+| **Match by verified email** | Let someone sign in to an existing account with the same email — only when the provider says it verified the address, Craft has verified the account's email too, and never for admins. See [Security](security). |
 | **PKCE** | On by default. Turn off only for a provider that rejects PKCE parameters. |
 | **Options** | `key=value; key=value` — see below. |
 

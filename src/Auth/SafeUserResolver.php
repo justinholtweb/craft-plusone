@@ -9,6 +9,7 @@ use CraftCms\Cms\Auth\OAuth\Data\ProviderDefinition;
 use CraftCms\Cms\Auth\OAuth\Events\OAuthUserLinkResolving;
 use CraftCms\Cms\Auth\OAuth\OAuth;
 use CraftCms\Cms\User\Elements\User;
+use CraftCms\Cms\User\Users;
 use JustinHoltWeb\PlusOne\Settings;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 
@@ -18,7 +19,9 @@ use Laravel\Socialite\Contracts\User as SocialiteUser;
  *  1. An identity already linked to a user signs in as that user (unless it's an admin and admins are off).
  *  2. Craft's `OAuthUserLinkResolving` event can still pick a user (same admin rule).
  *  3. An email that matches an existing account links to it ONLY if the provider is set to link by
- *     email, the provider verified that address, and the account isn't an admin's. Otherwise the
+ *     email, the provider verified that address, Craft vouches the account owns it too
+ *     ({@see EmailOwnership}: not pending, no unverified email change, registration verifies
+ *     emails), and the account isn't an admin's. The account's other sessions end. Otherwise the
  *     sign-in is refused — it never creates a second account with the same email, and never links.
  *  4. No match: a new user may be registered (Craft then applies public-registration / “New users”),
  *     but only with a verified email (when required) at an allowed domain.
@@ -30,6 +33,7 @@ class SafeUserResolver implements ResolvesOAuthUser
     public function __construct(
         protected readonly OAuth $oauth,
         protected readonly Settings $settings,
+        protected readonly Users $users,
     ) {}
 
     public function handle(ProviderDefinition $provider, SocialiteUser $socialiteUser, string $identity): ?User
@@ -53,7 +57,18 @@ class SafeUserResolver implements ResolvesOAuthUser
                 throw new LoginRefused($verified ? LoginRefused::EMAIL_IN_USE : LoginRefused::UNVERIFIED_EMAIL, $provider->handle);
             }
 
-            return $this->guardAdmin($existing, $provider);
+            $this->guardAdmin($existing, $provider);
+
+            // The provider proved the visitor owns the address; Craft must also vouch that the
+            // account does, or a pre-registered account would capture the victim's login.
+            if (! EmailOwnership::forUser($existing)) {
+                throw new LoginRefused(LoginRefused::EMAIL_UNPROVEN, $provider->handle);
+            }
+
+            // A new way into this account: sessions and remember-me tokens from before don't carry over.
+            $this->users->destroyOtherSessions($existing);
+
+            return $existing;
         }
 
         // Registration rules. (Whether registration is allowed at all is Craft's call, after this.)

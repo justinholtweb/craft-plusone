@@ -2,7 +2,8 @@
 
 // Plus One harness fixtures (idempotent), all prefixed `plusone`:
 //   groups  plusoneMembers (default group for new users), plusoneEditors (accessCp)
-//   users   plusone_bob (password), plusone_admin (admin, password), plusone_editor (no password, plusoneEditors)
+//   users   plusone_bob (password), plusone_admin (admin, password), plusone_editor (no password, plusoneEditors),
+//           plusone_pre (pending, never verified), plusone_unv (active, but its email still unverified)
 // Run with: ddev artisan tinker --execute "require 'storage/plusone-fixtures.php';"
 
 use CraftCms\Cms\Support\Facades\Elements;
@@ -28,6 +29,9 @@ $people = [
     'plusone_bob' => ['admin' => false, 'password' => 'plusone-Pass-123', 'groups' => []],
     'plusone_admin' => ['admin' => true, 'password' => 'plusone-Pass-123', 'groups' => []],
     'plusone_editor' => ['admin' => false, 'password' => null, 'groups' => [$groups['plusoneEditors']->id]],
+    // Pre-hijack attempts: accounts that hold an email address nobody has proved owning.
+    'plusone_pre' => ['admin' => false, 'password' => 'attacker-Pass-1', 'groups' => [], 'pending' => true],
+    'plusone_unv' => ['admin' => false, 'password' => 'attacker-Pass-1', 'groups' => [], 'unverified' => true],
 ];
 
 $ids = [];
@@ -37,10 +41,10 @@ foreach ($people as $username => $p) {
     $user->email = "$username@plusone.test";
     $user->fullName = ucfirst(substr($username, 8));
     $user->admin = $p['admin'];
-    $user->active = true;
-    $user->pending = false;
+    $user->active = empty($p['pending']);
+    $user->pending = ! empty($p['pending']);
     Elements::saveElement($user, false) || throw new RuntimeException("user $username: ".json_encode($user->errors()->all()));
-    DB::table('users')->where('id', $user->id)->update(['password' => $p['password'] ? Hash::make($p['password']) : null, 'suspended' => false, 'locked' => false]);
+    DB::table('users')->where('id', $user->id)->update(['password' => $p['password'] ? Hash::make($p['password']) : null, 'suspended' => false, 'locked' => false, 'unverifiedEmail' => empty($p['unverified']) ? null : "$username@plusone.test"]);
     app(Users::class)->assignUserToGroups($user->id, $p['groups']);
     $ids[$username] = $user->id;
 }

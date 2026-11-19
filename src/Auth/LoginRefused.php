@@ -23,8 +23,24 @@ class LoginRefused extends RuntimeException
 
     public const string DOMAIN = 'domain-not-allowed';
 
+    public const string EMAIL_UNPROVEN = 'account-email-unverified';
+
+    /** The refusal raised during this request, for the callback middleware's message. */
+    private static ?self $last = null;
+
+    public static function last(): ?self
+    {
+        return self::$last;
+    }
+
+    public static function forget(): void
+    {
+        self::$last = null;
+    }
+
     public function __construct(public readonly string $reason, string $provider)
     {
         parent::__construct(sprintf('Plus One refused an OAuth sign-in via “%s”: %s.', $provider, $reason));
+        self::$last = $this;
     }
 }

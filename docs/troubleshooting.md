@@ -12,7 +12,7 @@ and `laravel/socialite`.
 
 **“Authentication failed.”** On purpose, the visitor sees the same message for every refusal. Check
 `storage/logs`: Plus One logs `Plus One refused an OAuth sign-in via “handle”: reason.` — `email-in-use`,
-`unverified-email`, `no-email`, `domain-not-allowed` or `admin`. Other reasons (a provider error, an expired
+`unverified-email`, `account-email-unverified` (the matching Craft account is pending, has an email change awaiting verification, or registration doesn't verify emails), `no-email`, `domain-not-allowed` or `admin`. Other reasons (a provider error, an expired
 `state`) are logged by Craft.
 
 **`redirect_uri_mismatch`.** Register the exact callback URL the settings page lists for that site,
