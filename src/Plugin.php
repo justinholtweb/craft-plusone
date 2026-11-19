@@ -165,7 +165,7 @@ class Plugin extends BasePlugin
                 ! $definitions->has($handle) => t('**not ready**: see the log', category: 'plusone'),
                 default => t('ready', category: 'plusone'),
             };
-            $lines[] = "- **{$managed->name}** (`{$handle}`, ".DriverCatalogue::label($managed->driver)."): {$state}";
+            $lines[] = "- **".e($managed->name)."** (`{$handle}`, ".DriverCatalogue::label($managed->driver)."): {$state}";
 
             $definition = $definitions->get($handle);
             if ($definition instanceof ProviderDefinition) {

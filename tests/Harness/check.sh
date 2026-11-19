@@ -91,6 +91,13 @@ usercount() { tk "echo CraftCms\\Cms\\User\\Elements\\User::find()->email('pluso
 # as if the sign-in was more than auth.password_timeout ago.
 age() { local c; c=$(awk '$6=="craft-cms-session"{print $7}' "$1" | tail -1); tk "\$id=Illuminate\\Cookie\\CookieValuePrefix::remove(Illuminate\\Support\\Facades\\Crypt::decryptString(urldecode('$c'))); \$h=app('session')->driver()->getHandler(); \$d=json_decode(\$h->read(\$id), true); unset(\$d['auth']['password_confirmed_at']); \$h->write(\$id, json_encode(\$d)); echo 1;" >/dev/null; }
 
+# One run at a time: a second run's cleanup would delete this run's fixtures mid-flight.
+RUNLOCK=$H/storage/plusone-check.lock
+mkdir "$RUNLOCK" 2>/dev/null || { echo "another Plus One check is running ($RUNLOCK)"; exit 2; }
+trap 'rmdir "$RUNLOCK" 2>/dev/null' EXIT
+# Start clean: an interrupted run can leave users and identities behind.
+ok "leftovers from earlier runs removed" "$(run plusone-cleanup.php)" "ok"
+
 CPLOGIN="$U/admin/login"
 ACCOUNT="$U/plusone/account"
 FIX=$(run plusone-fixtures.php)

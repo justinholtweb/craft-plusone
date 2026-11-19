@@ -42,8 +42,8 @@ Craft 6 core ships OAuth login through Socialite (`CraftCms\Cms\Auth\OAuth`): pr
 6. **GraphQL.** ✅ `plusOneProviders(site:)` — handle, name, label, loginUrl; permission “List sign-in providers”.
 
 ## Status
-- **2026-11-18/19 — 6.0.0-beta.1 feature-complete.** 33 Pest tests; `tests/Harness/check.sh` 112 checks
-  (with `PLUSONE_MULTISITE=1`) against a local fake OAuth 2 / OIDC provider (`tests/Harness/fake-idp.php`,
+- **2026-11-18/19 — 6.0.0-beta.1 feature-complete.** 33 Pest tests; `tests/Harness/check.sh` 113 checks
+  (with `PLUSONE_MULTISITE=1`; one run at a time, it cleans up leftovers first) against a local fake OAuth 2 / OIDC provider (`tests/Harness/fake-idp.php`,
   also mimicking Keycloak's URLs for `socialiteproviders/keycloak`). Pint, Larastan 6, port-check green.
 - Unverified (no credentials): real Google/GitHub/etc. Built-in Socialite drivers go through core's named-driver
   path unchanged; only the generic OIDC provider and the Keycloak package ran end to end.
@@ -51,7 +51,7 @@ Craft 6 core ships OAuth login through Socialite (`CraftCms\Cms\Auth\OAuth`): pr
   `routes/plusone-fake-idp.php` + a guarded `require` in `routes/web.php`, `PLUSONE_FAKE_SECRET` in `.env`.
 
 ## Core issues found (Craft 6.0.0-beta.1)
-- `OAuth::normalizeProvider()` never runs `Env::parse()` on `clientId`/`clientSecret`, though the
+- `OAuth::normalizeProvider()` never runs `Env::parse()` (from reading the source) on `clientId`/`clientSecret`, though the
   `oauthProviders` docs show `'$GOOGLE_CLIENT_ID'` (Plus One resolves its own).
 - `oauthProviders.activatesUsers` also activates **existing** users on sign-in, via `Users::activateUser()`,
   which clears `suspended` and `locked`: a suspended user with a linked identity unsuspends themselves.
