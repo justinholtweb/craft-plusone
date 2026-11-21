@@ -1,6 +1,11 @@
 # Release Notes for Plus One
 
-## 6.0.0-beta.1 - Unreleased
+## 6.0.0-beta.2 - 2026-11-21
+
+### Changed
+- The documentation link (Plugin Store and README) now points at the docs on justinholt.com.
+
+## 6.0.0-beta.1 - 2026-11-18
 
 > Craft 6 only. Craft 6 is in beta: use caution on production.
 
